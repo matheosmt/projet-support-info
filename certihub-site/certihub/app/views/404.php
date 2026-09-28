@@ -1,0 +1,1 @@
+<section class="auth-page"><div class="auth-card center"><div class="eyebrow">404</div><h1>Page introuvable</h1><p>Cette page n’existe pas ou plus.</p><a class="btn btn-dark" href="/">Revenir à l’accueil</a></div></section>

@@ -1,0 +1,1 @@
+<section class="auth-page"><div class="auth-card center"><div class="eyebrow">403</div><h1>Accès refusé</h1><p>Ton rôle ne permet pas d'accéder à cette ressource.</p><a class="btn btn-dark" href="/tableau-de-bord">Mon espace</a></div></section>
