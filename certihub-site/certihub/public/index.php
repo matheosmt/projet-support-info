@@ -155,6 +155,7 @@ switch ($route) {
             'domains' => (int)$pdo->query('SELECT COUNT(DISTINCT domain) FROM certifications')->fetchColumn(),
             'students' => (int)$pdo->query('SELECT COUNT(*) FROM users WHERE role = "eleve"')->fetchColumn(),
             'certified' => (int)$pdo->query('SELECT COUNT(*) FROM user_certifications WHERE status = "obtenue"')->fetchColumn(),
+            'certified_students' => (int)$pdo->query('SELECT COUNT(DISTINCT user_id) FROM user_certifications WHERE status = "obtenue"')->fetchColumn(),
         ];
         $featured = $pdo->query('SELECT * FROM certifications ORDER BY featured DESC, id LIMIT 6')->fetchAll();
         render('home', compact('stats','featured'));

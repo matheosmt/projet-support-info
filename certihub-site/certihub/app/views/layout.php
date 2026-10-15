@@ -22,6 +22,7 @@
                 <a class="<?= active('support') ?>" href="/support">Support</a>
                 <?php if (in_array(Auth::user()['role'], ['admin','support'], true)): ?><a class="<?= active('admin') ?>" href="/admin">Admin</a><?php endif; ?>
                 <a class="nav-cta <?= active('tableau-de-bord') ?>" href="/tableau-de-bord">Mon espace</a>
+                <form method="post" action="/deconnexion" class="nav-logout-form"><input type="hidden" name="_csrf" value="<?= e($_SESSION['_csrf']) ?>"><button class="nav-logout" type="submit">Se déconnecter</button></form>
             <?php else: ?>
                 <a href="/connexion">Connexion</a>
                 <a class="nav-cta" href="/inscription">Créer un compte</a>

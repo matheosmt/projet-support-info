@@ -26,7 +26,7 @@ class Database {
         if (!isset($cols['price_eur'])) $pdo->exec("ALTER TABLE certifications ADD COLUMN price_eur INTEGER NOT NULL DEFAULT 0");
         self::syncCertificationMeta($pdo);
         self::insertMissingCertifications($pdo);
-        self::insertMissingTracks($pdo);
+        self::resetTracks($pdo);
     }
     private static function insertMissingCertifications(PDO $pdo): void {
         $existing = [];
@@ -36,25 +36,53 @@ class Database {
             if (!isset($existing[$c[1]])) $stmt->execute($c);
         }
     }
-    private static function insertMissingTracks(PDO $pdo): void {
-        $tracks=[
-            ['Après BTS SIO - SISR','reseau','Construire un socle solide en systèmes, réseaux, sécurité et cloud.',1],
-            ['Après BTS SIO - SLAM','dev','Passer du développement applicatif aux pratiques DevOps et cloud.',2],
-            ['Bachelor Développement','dev','Consolider les fondamentaux dev, Git, cloud et déploiement.',3],
-            ['Bachelor Cybersécurité','cyber','Structurer une progression de la sécurité réseau jusqu’aux pratiques SOC et cloud.',4],
-            ['Bachelor Cloud & DevOps','cloud','Valider Linux, réseau, cloud, conteneurs et automatisation.',5],
-            ['Bachelor Data','data','Construire un socle SQL, data engineering, analytics et plateformes data.',6],
-            ['Mastère IA & Machine Learning','ia','Approfondir Python, data, ML, MLOps et services IA cloud.',7],
-            ['Mastère Cybersécurité','cyber','Approfondir sécurité offensive, défense, gouvernance et cloud security.',8],
-            ['École d’ingénieur — Cloud & Infrastructure','cloud','Préparer des certifications avancées cloud, architecture et infrastructure.',9],
-            ['Réseaux & Systèmes','systeme','Approfondir administration Linux, réseau, virtualisation et automatisation.',10],
-            ['DevOps & Platform Engineering','dev','Automatiser les déploiements et industrialiser les plateformes cloud.',11],
+    private static function resetTracks(PDO $pdo): void {
+        $expected = array_column(self::trackCatalog(), 0);
+        $existing = $pdo->query('SELECT name FROM tracks ORDER BY sort_order')->fetchAll(PDO::FETCH_COLUMN);
+        if ($existing === $expected) return;
+
+        $pdo->exec('DELETE FROM track_certifications');
+        $pdo->exec('DELETE FROM tracks');
+
+        $tracks = self::trackCatalog();
+        $stmt = $pdo->prepare('INSERT INTO tracks(name,domain,description,sort_order) VALUES(?,?,?,?)');
+        foreach ($tracks as $track) $stmt->execute($track);
+
+        $trackIds = [];
+        foreach ($pdo->query('SELECT id,name FROM tracks') as $row) $trackIds[$row['name']] = (int)$row['id'];
+        $certIds = [];
+        foreach ($pdo->query('SELECT id,name FROM certifications') as $row) $certIds[$row['name']] = (int)$row['id'];
+
+        $maps = self::trackCertificationMap();
+        $stmt = $pdo->prepare('INSERT INTO track_certifications(track_id,certification_id,position) VALUES(?,?,?)');
+        foreach ($maps as $trackName => $certNames) {
+            if (!isset($trackIds[$trackName])) continue;
+            foreach (array_values($certNames) as $index => $certName) {
+                if (isset($certIds[$certName])) $stmt->execute([$trackIds[$trackName], $certIds[$certName], $index + 1]);
+            }
+        }
+    }
+    private static function trackCatalog(): array {
+        return [
+            ['Parcours Cloud','cloud','Du cloud fondamental à l’architecture, l’infrastructure as code et Kubernetes.',1],
+            ['Parcours Cybersécurité','cyber','Construire un socle sécurité puis aller vers le SOC, la défense et la sécurité offensive.',2],
+            ['Parcours Réseau','reseau','Apprendre les fondamentaux réseau puis progresser vers l’administration et le niveau entreprise.',3],
+            ['Parcours Développement','dev','Consolider la programmation, les environnements cloud et les pratiques DevOps.',4],
+            ['Parcours Data','data','Passer des fondamentaux data à l’analyse et au data engineering.',5],
+            ['Parcours IA','ia','Commencer par Python et les bases data avant d’aborder les usages IA générative et ML.',6],
+            ['Parcours Système','systeme','Maîtriser Linux, les services IT, l’administration et l’automatisation système.',7],
         ];
-        $stmt=$pdo->prepare('INSERT OR IGNORE INTO tracks(name,domain,description,sort_order) VALUES(?,?,?,?)');
-        foreach($tracks as $t) $stmt->execute($t);
-        $maps=[[1,1],[1,2],[1,4],[1,7],[1,12],[2,14],[2,15],[2,5],[2,22],[3,15],[3,21],[3,5],[3,12],[4,3],[4,6],[4,9],[4,25],[4,27],[4,34],[5,7],[5,12],[5,14],[5,17],[5,18],[5,31],[6,4],[6,20],[6,24],[6,28],[6,36],[7,20],[7,26],[7,29],[7,32],[7,37],[8,3],[8,9],[8,25],[8,30],[8,34],[8,40],[9,7],[9,17],[9,18],[9,21],[9,31],[10,4],[10,7],[10,12],[10,14],[11,5],[11,15],[11,18],[11,22],[11,31]];
-        $stmt=$pdo->prepare('INSERT OR IGNORE INTO track_certifications(track_id,certification_id,position) VALUES(?,?,?)'); $pos=[];
-        foreach($maps as [$tr,$ce]){$pos[$tr]=($pos[$tr]??0)+1;$stmt->execute([$tr,$ce,$pos[$tr]]);}
+    }
+    private static function trackCertificationMap(): array {
+        return [
+            'Parcours Cloud' => ['Azure Fundamentals (AZ-900)','AWS Certified Cloud Practitioner','Terraform Associate','AWS Certified Solutions Architect - Associate','Associate Cloud Engineer','CKA'],
+            'Parcours Cybersécurité' => ['Certified in Cybersecurity','Security+','CyberOps Associate','CySA+','Azure Security Engineer Associate','OSCP'],
+            'Parcours Réseau' => ['Network+','CCNA','CCNP Enterprise'],
+            'Parcours Développement' => ['PCAP - Python Programming','Java SE Developer','AWS Certified Developer - Associate','Azure Developer Associate','DevNet Associate','CKAD','GitLab CI/CD Associate'],
+            'Parcours Data' => ['Azure Data Fundamentals (DP-900)','Power BI Data Analyst Associate','Data Engineer Associate','SAS Certified Specialist: Base Programming'],
+            'Parcours IA' => ['PCAP - Python Programming','Generative AI Engineer Associate','NVIDIA-Certified Associate: Generative AI LLMs'],
+            'Parcours Système' => ['ITIL 4 Foundation','LFCS','AWS Certified SysOps Administrator - Associate','Red Hat Certified System Administrator (RHCSA)','Red Hat Certified Engineer (RHCE)'],
+        ];
     }
     private static function syncCertificationMeta(PDO $pdo): void {
         $meta = self::certificationCatalog();
@@ -76,25 +104,20 @@ class Database {
         $stmt=$pdo->prepare('INSERT INTO certifications(vendor,name,domain,summary,prerequisites,featured,certified_count,difficulty,price_eur) VALUES(?,?,?,?,?,?,?,?,?)');
         foreach($certs as $c)$stmt->execute($c);
 
-        $tracks=[
-            ['Après BTS SIO - SISR','reseau','Construire un socle solide en systèmes, réseaux, sécurité et cloud.'],
-            ['Après BTS SIO - SLAM','dev','Passer du développement applicatif aux pratiques DevOps et cloud.'],
-            ['Bachelor Développement','dev','Consolider les fondamentaux dev, Git, cloud et déploiement.'],
-            ['Bachelor Cybersécurité','cyber','Structurer une progression de la sécurité réseau jusqu’aux pratiques SOC et cloud.'],
-            ['Bachelor Cloud & DevOps','cloud','Valider Linux, réseau, cloud, conteneurs et automatisation.'],
-            ['Bachelor Data','data','Construire un socle SQL, data engineering, analytics et plateformes data.'],
-            ['Mastère IA & Machine Learning','ia','Approfondir Python, data, ML, MLOps et services IA cloud.'],
-            ['Mastère Cybersécurité','cyber','Approfondir sécurité offensive, défense, gouvernance et cloud security.'],
-            ['École d’ingénieur — Cloud & Infrastructure','cloud','Préparer des certifications avancées cloud, architecture et infrastructure.'],
-            ['Réseaux & Systèmes','systeme','Approfondir administration Linux, réseau, virtualisation et automatisation.'],
-            ['DevOps & Platform Engineering','dev','Automatiser les déploiements et industrialiser les plateformes cloud.'],
-        ];
+        $tracks = self::trackCatalog();
         $stmt=$pdo->prepare('INSERT INTO tracks(name,domain,description,sort_order) VALUES(?,?,?,?)');
-        foreach(array_values($tracks) as $i=>$t){$stmt->execute([$t[0],$t[1],$t[2],$i+1]);}
+        foreach($tracks as $t)$stmt->execute($t);
 
-        $maps=[[1,1],[1,2],[1,4],[1,7],[1,12],[2,14],[2,15],[2,5],[2,22],[3,15],[3,21],[3,5],[3,12],[4,3],[4,6],[4,9],[4,25],[4,27],[4,34],[5,7],[5,12],[5,14],[5,17],[5,18],[5,31],[6,4],[6,20],[6,24],[6,28],[6,36],[7,20],[7,26],[7,29],[7,32],[7,37],[8,3],[8,9],[8,25],[8,30],[8,34],[8,40],[9,7],[9,17],[9,18],[9,21],[9,31],[10,4],[10,7],[10,12],[10,14],[11,5],[11,15],[11,18],[11,22],[11,31]];
-        $stmt=$pdo->prepare('INSERT INTO track_certifications(track_id,certification_id,position) VALUES(?,?,?)'); $pos=[];
-        foreach($maps as [$tr,$ce]){$pos[$tr]=($pos[$tr]??0)+1;$stmt->execute([$tr,$ce,$pos[$tr]]);}
+        $trackIds = [];
+        foreach($pdo->query('SELECT id,name FROM tracks') as $row)$trackIds[$row['name']] = (int)$row['id'];
+        $certIds = [];
+        foreach($pdo->query('SELECT id,name FROM certifications') as $row)$certIds[$row['name']] = (int)$row['id'];
+        $stmt=$pdo->prepare('INSERT INTO track_certifications(track_id,certification_id,position) VALUES(?,?,?)');
+        foreach(self::trackCertificationMap() as $trackName=>$certNames){
+            foreach(array_values($certNames) as $i=>$certName){
+                if(isset($trackIds[$trackName],$certIds[$certName]))$stmt->execute([$trackIds[$trackName],$certIds[$certName],$i+1]);
+            }
+        }
 
         $trainings=[
             [1,'AWS Cloud Foundations','cloud','Déployer une première architecture AWS et comprendre IAM, compute, storage et réseau.','Débutant','12h'],

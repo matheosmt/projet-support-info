@@ -48,3 +48,13 @@ La base `storage/certihub.sqlite` est créée automatiquement au premier démarr
 Le catalogue utilise un fond bleu marine, des cartes translucides teintées par domaine, des icônes monochromes en bas des cartes, un point de couleur pour la difficulté et un prix indicatif.
 
 Les prix et statistiques présents dans les données de démonstration sont indicatifs et doivent être remplacés/actualisés avant mise en production.
+
+
+### Page d'accueil V7
+Les statistiques d'école (`élèves avec ≥ 1 certification` et `certifications obtenues`) proviennent directement de `user_certifications`. La tendance 12 mois et les volumes mondiaux affichés sur l'accueil sont volontairement des données de démonstration tant qu'un historique réel et des sources consolidées par éditeur ne sont pas branchés.
+
+
+## V9
+- Déconnexion via bouton POST dans la navigation
+- 7 parcours types, un par domaine IT
+- Page Formations simplifiée en cartes par domaine
